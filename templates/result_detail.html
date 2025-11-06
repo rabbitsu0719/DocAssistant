@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>스마트 문서 비서 – 분석 결과</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background:#f5faf6; }
+    .wrap { max-width: 720px; margin: 40px auto; background:#fff; padding:24px; border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,.08); }
+    pre  { background:#0b1020; color:#d2f4ff; padding:12px; border-radius:8px; white-space: pre-wrap; }
+    a.btn { display:inline-block; padding:10px 14px; border-radius:10px; background:#f6c453; color:#222; text-decoration:none; font-weight:600; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div style="opacity:.7; margin-bottom:8px;"><a href="/">← 홈으로</a></div>
+    
+    <!-- ✅ 문서 비서 서비스용 제목 -->
+    <h2>문서 분석 결과</h2>
+
+    <p style="margin:8px 0; font-size:16px;">
+      문서명: <b>{{ filename }}</b><br>
+      기록 ID: {{ record_id }}
+    </p>
+
+    <h3>AI 문서 분석(JSON)</h3>
+    <pre>{{ doc_json }}</pre>
+
+    <!-- ✅ 상세 보기 링크 경로 고정 -->
+    <a class="btn" href="/documents/{{ record_id }}">저장된 결과 보기</a>
+  </div>
+</body>
+</html>
