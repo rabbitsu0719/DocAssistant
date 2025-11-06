@@ -1,0 +1,16 @@
+cat <<'EOF' > .gitignore
+# Python 가상환경
+venv/
+venv311/
+
+# 업로드 폴더
+uploads/
+
+# 캐시 / 빌드 파일
+__pycache__/
+*.pyc
+
+# OS / IDE 파일
+.DS_Store
+.env
+EOF

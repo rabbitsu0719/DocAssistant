@@ -1,0 +1,19 @@
+# --- Web Framework ---
+fastapi==0.115.0
+uvicorn==0.30.6
+
+# --- Image Handling ---
+pillow==10.4.0
+pillow-heif==0.18.0
+pdf2image==1.17.0
+
+# --- OCR Core ---
+pytesseract==0.3.13
+opencv-python-headless==4.9.0.80
+
+# --- OCR Enhancer (optional but powerful) ---
+paddlepaddle==2.6.1
+paddleocr==2.7.3
+
+# --- Utilities ---
+numpy==1.26.4
