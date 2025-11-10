@@ -1,10 +1,15 @@
+# 이미 잘 작동하는 ocr 엔진 통합기
 from __future__ import annotations
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from fastapi import HTTPException, UploadFile
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 from pillow_heif import register_heif_opener
 from pdf2image import convert_from_path
 import pytesseract, io, os, uuid, tempfile, re
 from statistics import median
+from utils.text_cleaner import clean_ocr_text
 
 # ================= 기본 설정 =================
 pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
@@ -240,8 +245,34 @@ def run_ocr_on_upload(
     use_paddle: bool = True,
     use_easyocr: bool = False
 ) -> dict:
+    # 업로드 저장 / 전처리
     png = save_upload_to_png(file, raw)
     img = preprocess_doc(png, mode=mode)
+    # OCR 수행
     text, meta = ocr_best(img, lang=lang, psms=(3, 4, 6),
                           timeout=timeout, use_paddle=use_paddle, use_easyocr=use_easyocr)
+    # 줄바꿈/공백 정리
+    text = clean_ocr_text(text)
+    # 결과 리턴
+    return {"text": text, "meta": meta}
+
+# ================= 세그멘테이션 + OCR 통합 (선택) =================
+def ocr_text_region(img_path: str, bbox: list[int]) -> dict:
+    """
+    세그멘테이션된 문서 영역(bbox)에 대해 OCR 수행
+    - bbox: [x1, y1, x2, y2]
+    - return: { "text": ..., "meta": {...} }
+    """
+    from PIL import Image
+    import cv2, numpy as np
+
+    img = cv2.imread(img_path)
+    if img is None:
+        raise ValueError("이미지를 읽을 수 없습니다.")
+    x1, y1, x2, y2 = map(int, bbox)
+    roi = img[y1:y2, x1:x2]
+    pil_roi = Image.fromarray(cv2.cvtColor(roi, cv2.COLOR_BGR2RGB))
+
+    text, meta = ocr_best(pil_roi, lang="kor+eng", psms=(3,4,6))
+    text = clean_ocr_text(text)
     return {"text": text, "meta": meta}

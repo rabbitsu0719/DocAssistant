@@ -1,27 +1,42 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <title>스마트 문서 비서 – 문서 업로드</title>
+  <meta charset="utf-8" />
+  <title>스마트 문서 비서</title>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 40px auto; }
-    .card { border: 1px solid #eee; border-radius: 12px; padding: 16px; }
-    .output-box { margin-top: 24px; padding: 16px; border: 1px solid #e0e0e0; border-radius: 12px; white-space: pre-wrap; background: #f8f9fb; }
+    body { font-family: system-ui, sans-serif; max-width: 780px; margin: 40px auto; }
+    .card { border:1px solid #eee; border-radius:12px; padding:16px; margin:12px 0; }
+    pre { background:#0b1020; color:#d2f4ff; padding:12px; border-radius:8px; white-space:pre-wrap; }
+    .row { display:flex; gap:12px; flex-wrap:wrap }
+    .row form { flex: 1 1 340px }
+    button { padding:8px 14px; border-radius:8px; border:1px solid #ddd; cursor:pointer; }
   </style>
 </head>
 <body>
   <h1>스마트 문서 비서</h1>
-  <p>이미지 속 문서를 AI가 자동으로 분석해드립니다.</p>
 
   <div class="card">
-    <form action="/upload_html" method="post" enctype="multipart/form-data">
-      <input type="file" name="file" accept="image/*" required>
-      <button type="submit">문서 업로드</button>
-    </form>
+    <h3>이미지 업로드</h3>
+    <div class="row">
+      <form action="/upload_html" method="post" enctype="multipart/form-data">
+        <p><b>단일 OCR</b> (빠른 테스트)</p>
+        <input type="file" name="file" accept="image/*,.pdf" required>
+        <button type="submit">업로드 & OCR</button>
+      </form>
+
+      <form action="/upload_and_segment" method="post" enctype="multipart/form-data">
+        <p><b>세그멘테이션 + 영역별 OCR</b> (권장)</p>
+        <input type="file" name="file" accept="image/*,.pdf" required>
+        <button type="submit">업로드 & 분석</button>
+      </form>
+    </div>
   </div>
 
   {% if text %}
-    <div class="output-box">{{ text }}</div>
+  <div class="card">
+    <h3>처리 결과</h3>
+    <pre>{{ text }}</pre>
+  </div>
   {% endif %}
 </body>
 </html>

@@ -1,32 +1,38 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <title>스마트 문서 비서 – 분석 결과</title>
+  <meta charset="utf-8" />
+  <title>문서 상세 - {{ filename }}</title>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; background:#f5faf6; }
-    .wrap { max-width: 720px; margin: 40px auto; background:#fff; padding:24px; border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,.08); }
-    pre  { background:#0b1020; color:#d2f4ff; padding:12px; border-radius:8px; white-space: pre-wrap; }
-    a.btn { display:inline-block; padding:10px 14px; border-radius:10px; background:#f6c453; color:#222; text-decoration:none; font-weight:600; }
+    body { font-family: system-ui, sans-serif; max-width: 980px; margin: 36px auto; }
+    .meta { color:#666; margin-bottom: 16px; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    img { max-width:100%; border:1px solid #eee; border-radius:8px; }
+    pre { background:#0b1020; color:#d2f4ff; padding:12px; border-radius:8px; white-space:pre-wrap; }
+    @media (max-width:920px){ .grid{ grid-template-columns:1fr; } }
+    a { color:#0b69ff; text-decoration: none; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div style="opacity:.7; margin-bottom:8px;"><a href="/">← 홈으로</a></div>
-    
-    <!-- ✅ 문서 비서 서비스용 제목 -->
-    <h2>문서 분석 결과</h2>
+  <h1>문서 상세</h1>
+  <div class="meta">
+    <div>📄 <b>{{ filename }}</b></div>
+    <div>🆔 Record ID: {{ record_id }}</div>
+    <div><a href="/">← 홈으로</a></div>
+  </div>
 
-    <p style="margin:8px 0; font-size:16px;">
-      문서명: <b>{{ filename }}</b><br>
-      기록 ID: {{ record_id }}
-    </p>
+  <div class="grid">
+    <div>
+      <h3>레이아웃 미리보기</h3>
+      <!-- 오버레이 이미지 (있으면 표시, 없으면 브라우저가 404) -->
+      <img src="{{ overlay_url }}" alt="overlay">
+      <p style="font-size:12px;color:#777">* 오버레이가 보이지 않으면 아직 세그멘테이션 버전으로 처리되지 않았을 수 있어요.</p>
+    </div>
 
-    <h3>AI 문서 분석(JSON)</h3>
-    <pre>{{ doc_json }}</pre>
-
-    <!-- ✅ 상세 보기 링크 경로 고정 -->
-    <a class="btn" href="/documents/{{ record_id }}">저장된 결과 보기</a>
+    <div>
+      <h3>결과 JSON</h3>
+      <pre>{{ doc_json }}</pre>
+    </div>
   </div>
 </body>
 </html>
