@@ -6,11 +6,13 @@
   <style>
     body { font-family: system-ui, sans-serif; max-width: 980px; margin: 36px auto; }
     .meta { color:#666; margin-bottom: 16px; }
-    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:20px; }
     img { max-width:100%; border:1px solid #eee; border-radius:8px; }
     pre { background:#0b1020; color:#d2f4ff; padding:12px; border-radius:8px; white-space:pre-wrap; }
+    a { color:#0b69ff; text-decoration:none; }
     @media (max-width:920px){ .grid{ grid-template-columns:1fr; } }
-    a { color:#0b69ff; text-decoration: none; }
+    button { background:#eee; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; }
+    button:hover { background:#ddd; }
   </style>
 </head>
 <body>
@@ -18,21 +20,48 @@
   <div class="meta">
     <div>📄 <b>{{ filename }}</b></div>
     <div>🆔 Record ID: {{ record_id }}</div>
-    <div><a href="/">← 홈으로</a></div>
+    <div style="display:flex; gap:12px; margin-top:6px;">
+      <a href="/">← 홈으로</a>
+      <a href="/api/documents/{{ record_id }}/layout" target="_blank">🧾 JSON API로 보기</a>
+    </div>
   </div>
 
   <div class="grid">
+    <!-- 왼쪽: 오버레이 미리보기 -->
     <div>
-      <h3>레이아웃 미리보기</h3>
-      <!-- 오버레이 이미지 (있으면 표시, 없으면 브라우저가 404) -->
+      <h3>🖼️ 레이아웃 미리보기</h3>
       <img src="{{ overlay_url }}" alt="overlay">
-      <p style="font-size:12px;color:#777">* 오버레이가 보이지 않으면 아직 세그멘테이션 버전으로 처리되지 않았을 수 있어요.</p>
+      <div style="margin-top:8px;">
+        <a href="{{ overlay_url }}" download>⬇️ 오버레이 PNG 다운로드</a>
+      </div>
+      <p style="font-size:12px;color:#777;margin-top:4px;">
+        * 오버레이가 보이지 않으면 세그멘테이션 버전으로 처리되지 않았을 수 있습니다.
+      </p>
     </div>
 
+    <!-- 오른쪽: JSON 결과 -->
     <div>
-      <h3>결과 JSON</h3>
-      <pre>{{ doc_json }}</pre>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>🧾 결과 JSON</h3>
+        <div>
+          <button onclick="toggleJson()">접기/펼치기</button>
+          <button onclick="copyJson()">📋 복사</button>
+        </div>
+      </div>
+      <pre id="jsonbox">{{ doc_json }}</pre>
     </div>
   </div>
+
+  <script>
+    function toggleJson() {
+      const box = document.getElementById("jsonbox");
+      box.style.display = (box.style.display === "none") ? "block" : "none";
+    }
+    function copyJson() {
+      const text = document.getElementById("jsonbox").innerText;
+      navigator.clipboard.writeText(text);
+      alert("JSON 복사 완료 ✅");
+    }
+  </script>
 </body>
 </html>
