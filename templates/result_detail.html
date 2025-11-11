@@ -4,19 +4,57 @@
   <meta charset="utf-8" />
   <title>문서 상세 - {{ filename }}</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 980px; margin: 36px auto; }
-    .meta { color:#666; margin-bottom: 16px; }
-    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:20px; }
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 1100px;
+      margin: 36px auto;
+      line-height: 1.5;
+      color: #111;
+    }
+    .meta { color:#555; margin-bottom: 16px; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:24px; }
     img { max-width:100%; border:1px solid #eee; border-radius:8px; }
-    pre { background:#0b1020; color:#d2f4ff; padding:12px; border-radius:8px; white-space:pre-wrap; }
+    pre {
+      background:#0b1020;
+      color:#d2f4ff;
+      padding:12px;
+      border-radius:8px;
+      white-space:pre-wrap;
+      overflow-x:auto;
+      font-size:13px;
+    }
     a { color:#0b69ff; text-decoration:none; }
+    a:hover { text-decoration:underline; }
     @media (max-width:920px){ .grid{ grid-template-columns:1fr; } }
-    button { background:#eee; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; }
-    button:hover { background:#ddd; }
+    button {
+      background:#f1f3f5;
+      border:none;
+      padding:6px 10px;
+      border-radius:6px;
+      cursor:pointer;
+      font-size:13px;
+    }
+    button:hover { background:#e4e6e8; }
+    .btn-sm { font-size:12px; padding:5px 8px; margin-right:4px; }
+    .thumb-grid {
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+    .thumb-card {
+      border:1px solid #ddd;
+      border-radius:8px;
+      padding:8px;
+      background:#fafafa;
+      text-align:center;
+      box-shadow:0 2px 4px rgba(0,0,0,0.05);
+    }
   </style>
 </head>
 <body>
   <h1>문서 상세</h1>
+
   <div class="meta">
     <div>📄 <b>{{ filename }}</b></div>
     <div>🆔 Record ID: {{ record_id }}</div>
@@ -30,13 +68,51 @@
     <!-- 왼쪽: 오버레이 미리보기 -->
     <div>
       <h3>🖼️ 레이아웃 미리보기</h3>
-      <img src="{{ overlay_url }}" alt="overlay">
+
+      <!-- 배율 버튼 -->
+      <div style="margin-bottom:8px;">
+        <button class="btn-sm" onclick="setZoom(1.0)">100%</button>
+        <button class="btn-sm" onclick="setZoom(0.75)">75%</button>
+        <button class="btn-sm" onclick="setZoom(0.5)">50%</button>
+      </div>
+
+      <div id="overlay-wrap" style="text-align:center;">
+        <img id="overlay-img" src="{{ overlay_url }}" alt="overlay"
+             style="border:2px solid #ccc; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.07); max-width:min(100%,1100px); height:auto;">
+      </div>
+
       <div style="margin-top:8px;">
         <a href="{{ overlay_url }}" download>⬇️ 오버레이 PNG 다운로드</a>
       </div>
       <p style="font-size:12px;color:#777;margin-top:4px;">
         * 오버레이가 보이지 않으면 세그멘테이션 버전으로 처리되지 않았을 수 있습니다.
       </p>
+
+      <!-- 표 썸네일 -->
+      {% set blocks = parsed.get('layout', {}).get('blocks', []) %}
+      {% set tables = [] %}
+      {% for b in blocks %}
+        {% if (b.get('type') or b.get('cls')) == 'table' %}
+          {% set t = b.get('table') or {} %}
+          {% if t.get('image_url') %}
+            {% set _ = tables.append(t.get('image_url')) %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+
+      {% if tables %}
+      <h3 style="margin-top:24px;">📑 표 썸네일 ({{ tables|length }}개)</h3>
+      <div class="thumb-grid">
+        {% for url in tables %}
+          <div class="thumb-card">
+            <div style="font-size:12px;color:#666;">table {{ loop.index }}</div>
+            <a href="{{ url }}" target="_blank">
+              <img src="{{ url }}" alt="table {{ loop.index }}">
+            </a>
+          </div>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
 
     <!-- 오른쪽: JSON 결과 -->
@@ -61,6 +137,12 @@
       const text = document.getElementById("jsonbox").innerText;
       navigator.clipboard.writeText(text);
       alert("JSON 복사 완료 ✅");
+    }
+    function setZoom(scale){
+      const img = document.getElementById('overlay-img');
+      img.style.transformOrigin = 'top left';
+      img.style.transform = `scale(${scale})`;
+      document.getElementById('overlay-wrap').style.overflow = (scale>1? 'auto':'visible');
     }
   </script>
 </body>

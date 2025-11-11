@@ -1,7 +1,6 @@
 # services/visualize.py
 from __future__ import annotations
-import os
-import cv2
+import os, cv2, random
 from typing import Dict, List, Any, Tuple
 
 # BGR 컬러맵
