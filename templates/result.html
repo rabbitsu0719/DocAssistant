@@ -1,0 +1,39 @@
+<!-- templates/result.html -->
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>분석 결과 #{{ rec.id }}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 960px; margin: 32px auto; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .card { border: 1px solid #eee; border-radius: 12px; padding: 16px; }
+    .imgbox img { max-width: 100%; border-radius: 8px; }
+    pre { background: #0b1020; color: #d2f4ff; padding: 12px; border-radius: 8px; white-space: pre-wrap; }
+    .actions { display:flex; gap:8px; margin: 12px 0; }
+    a.btn { padding: 8px 12px; border:1px solid #ddd; border-radius:8px; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <h1>분석 결과 #{{ rec.id }}</h1>
+  <div class="actions">
+    <a class="btn" href="/download/{{ rec.id }}?kind=txt">OCR 텍스트 다운로드</a>
+    <a class="btn" href="/download/{{ rec.id }}?kind=json">전체 JSON 다운로드</a>
+    <a class="btn" href="/history">히스토리</a>
+    <a class="btn" href="/">처음으로</a>
+  </div>
+
+  <div class="grid">
+    <div class="card imgbox">
+      <h2>세그멘테이션 시각화</h2>
+      <img src="{{ vis_url }}" alt="visualized">
+      <p style="color:#666; font-size:14px;">파일명: {{ rec.filename }}</p>
+    </div>
+
+    <div class="card">
+      <h2>OCR 인식 텍스트</h2>
+      <pre>{{ rec.ocr_text }}</pre>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,6 +1,5 @@
-# main.py
 from __future__ import annotations
-
+from models import Base, OCRRecord
 from fastapi import FastAPI, UploadFile, File, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
@@ -13,13 +12,28 @@ import os, json, time
 import cv2
 
 # DB
-from db import get_db
-from crud import create_ocr_record, get_record
+from db import get_db, engine
+from crud import create_ocr_record, create_full_record, get_record, list_records
 
 # 세그멘테이션 / 시각화 / OCR 연결
 from services.segment import segment_layout
 from services.visualize import save_overlay
 from services.ocr_service import ocr_text_region, save_upload_to_png
+
+
+# -----------------------------------------------------------------------------
+# 유틸
+# -----------------------------------------------------------------------------
+def _as_obj(maybe_json):
+    """DB에 문자열/JSON 혼재를 안전하게 dict로 변환"""
+    if isinstance(maybe_json, dict):
+        return maybe_json
+    if isinstance(maybe_json, str) and maybe_json.strip():
+        try:
+            return json.loads(maybe_json)
+        except Exception:
+            return {"_raw": maybe_json}
+    return {}
 
 # -----------------------------------------------------------------------------
 # 앱/정적 경로
@@ -27,10 +41,13 @@ from services.ocr_service import ocr_text_region, save_upload_to_png
 app = FastAPI(title="Smart Document Assistant")
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-os.makedirs("uploads", exist_ok=True)
-os.makedirs("captures", exist_ok=True)
-app.mount("/captures", StaticFiles(directory="captures"), name="captures")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+# 정적 제공: 캡처 이미지와 업로드 파일
+os.makedirs(BASE_DIR / "uploads", exist_ok=True)
+os.makedirs(BASE_DIR / "captures", exist_ok=True)
+os.makedirs(BASE_DIR / "captures" / "tables", exist_ok=True)
+app.mount("/captures", StaticFiles(directory=str(BASE_DIR / "captures")), name="captures")
+app.mount("/uploads", StaticFiles(directory=str(BASE_DIR / "uploads")), name="uploads")
 
 # -----------------------------------------------------------------------------
 # 홈
@@ -97,21 +114,21 @@ async def segment_preview(file: UploadFile = File(...)):
         if not raw:
             raise HTTPException(400, "빈 파일입니다.")
 
-        # 1) PNG 저장
+        # 1) PNG 저장 (절대경로 기대)
         png_path = save_upload_to_png(file, raw)
 
         # 2) 세그멘테이션
         layout = segment_layout(png_path)
 
-        # 3) 오버레이 저장
+        # 3) 오버레이 저장 (절대경로)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         stem = Path(file.filename).stem
         overlay_name = f"{stem}_{ts}_overlay.png"
-        overlay_path = os.path.join("captures", overlay_name)
-        save_overlay(png_path, layout, overlay_path)
+        overlay_abs = BASE_DIR / "captures" / overlay_name
+        save_overlay(png_path, layout, str(overlay_abs))
 
-        # 4) 이미지 파일 응답
-        return FileResponse(overlay_path, media_type="image/png")
+        # 4) 이미지 파일 응답 (절대경로)
+        return FileResponse(str(overlay_abs), media_type="image/png")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"세그멘테이션 미리보기 실패: {e}")
@@ -131,7 +148,7 @@ async def upload_and_segment(
         if not raw:
             raise HTTPException(400, "빈 파일입니다.")
 
-        # 1) PNG 저장
+        # 1) PNG 저장 (절대경로 기대)
         png_path = save_upload_to_png(file, raw)
 
         # 2) 문서 레이아웃 분석
@@ -139,9 +156,10 @@ async def upload_and_segment(
         if not isinstance(layout, dict) or "blocks" not in layout:
             raise RuntimeError("세그멘테이션 결과 형식이 올바르지 않습니다. {'blocks': [...]} 형식 필요")
 
-        # 3) 각 블록 OCR 수행(텍스트만)
-        os.makedirs("captures/tables", exist_ok=True)
+        # 3) 각 블록 OCR 수행(텍스트만) & 표 썸네일 저장
         bgr_full = cv2.imread(png_path)
+        if bgr_full is None:
+            raise RuntimeError("이미지 로드 실패")
         H, W = bgr_full.shape[:2]
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         stem = Path(file.filename).stem
@@ -150,6 +168,7 @@ async def upload_and_segment(
             typ = (b.get("type") or b.get("cls") or "").lower()
             bbox = b.get("bbox") or b.get("box") or b.get("poly")
             if not bbox or len(bbox) < 4:
+                b["warn"] = "invalid_bbox"
                 continue
 
             # 좌표 클램핑
@@ -164,36 +183,35 @@ async def upload_and_segment(
                     b["ocr_error"] = str(ocr_e)
 
             elif typ == "table":
-                # 표 크롭 저장 + 썸네일 URL JSON에 삽입
                 crop = bgr_full[y1:y2, x1:x2]
-                tbl_name = f"{stem}_{ts}_t{idx}.png"
-                tbl_path = os.path.join("captures", "tables", tbl_name)
-                cv2.imwrite(tbl_path, crop)
-                b["table"] = b.get("table", {}) or {}
-                b["table"]["image_url"] = f"/captures/tables/{tbl_name}"
-                # 원시 content는 있으면 유지
-                if "content" in b and b["content"] is not None:
-                    b["table"]["raw"] = b["content"]
+                if crop.size:
+                    tbl_name = f"{stem}_{ts}_t{idx}.png"
+                    tbl_abs = BASE_DIR / "captures" / "tables" / tbl_name
+                    cv2.imwrite(str(tbl_abs), crop)
+                    b.setdefault("table", {})
+                    b["table"]["image_url"] = f"/captures/tables/{tbl_name}"
+                    if "content" in b and b["content"] is not None:
+                        b["table"]["raw"] = b["content"]
 
-        # 4) 오버레이 이미지 생성
-        #ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        #stem = Path(file.filename).stem
+        # 4) 오버레이 이미지 생성 (절대경로 저장)
         overlay_name = f"{stem}_{ts}_overlay.png"
-        overlay_path = os.path.join("captures", overlay_name)
-        save_overlay(png_path, layout, overlay_path)
-
-        # 5) DB 저장(overlay_url 포함)
+        overlay_abs = BASE_DIR / "captures" / overlay_name
+        save_overlay(png_path, layout, str(overlay_abs))
         overlay_url = f"/captures/{overlay_name}"
+
+        # 5) DB 저장 — create_full_record 사용 (파라미터명 주의: ocr_text)
         parsed_payload = {
             "layout": layout,
             "overlay_url": overlay_url,
-            "source_png": png_path.replace(str(BASE_DIR) + "/", ""),
+            "source_png": str(Path(png_path).resolve().relative_to(BASE_DIR)), # resolve()를 추가하면 png_path가 상대경로이든 절대경로이든 BASE_DIR 기준의 절대경로로 변환된 뒤 relative_to() 작동
         }
-        rec = create_ocr_record(
+        rec = create_full_record(
             db,
             filename=file.filename,
-            raw_text="(세그멘테이션 결과: 영역별 OCR 포함, 표 썸네일 생성)",
-            parsed=parsed_payload,
+            ocr_text="(세그멘테이션 결과: 영역별 OCR 포함, 표 썸네일 생성)",
+            parsed=parsed_payload,   # UI 친화 메타
+            seg_json=layout,         # 모델 친화 원본 구조
+            vis_path=overlay_name,   # 파일명만 저장
             score=0,
             tier="layout",
         )
@@ -216,19 +234,17 @@ async def document_detail(request: Request, record_id: int, db: Session = Depend
     if not rec:
         raise HTTPException(404, "문서를 찾을 수 없습니다.")
 
-    overlay_url = None
-    try:
-        if rec.parsed and isinstance(rec.parsed, dict):
-            overlay_url = rec.parsed.get("overlay_url")
-    except Exception:
-        overlay_url = None
+    parsed_obj = _as_obj(rec.parsed)
 
+    # vis_path 우선 → parsed.overlay_url → 과거 규칙 추정
+    overlay_url = None
+    if getattr(rec, "vis_path", None):
+        overlay_url = f"/captures/{rec.vis_path}"
     if not overlay_url:
-        # 하위 호환(이전 규칙): 파일명만으로 추정
+        overlay_url = parsed_obj.get("overlay_url")
+    if not overlay_url:
         stem = Path(rec.filename).stem
         overlay_url = f"/captures/{stem}_overlay.png"
-
-    parsed_obj = rec.parsed if isinstance(rec.parsed, dict) else {}
 
     return templates.TemplateResponse(
         "result_detail.html",
@@ -237,7 +253,7 @@ async def document_detail(request: Request, record_id: int, db: Session = Depend
             "record_id": rec.id,
             "filename": rec.filename,
             "overlay_url": overlay_url,
-            "doc_json": json.dumps(rec.parsed, ensure_ascii=False, indent=2),
+            "doc_json": json.dumps(parsed_obj, ensure_ascii=False, indent=2),
             "parsed": parsed_obj
         }
     )
@@ -250,7 +266,12 @@ async def get_layout_json(record_id: int, db: Session = Depends(get_db)):
     rec = get_record(db, record_id)
     if not rec:
         raise HTTPException(404, "문서를 찾을 수 없습니다.")
-    return rec.parsed if isinstance(rec.parsed, dict) else {"layout": rec.parsed}
+    # seg_json 우선, 없으면 parsed.layout
+    seg_obj = _as_obj(getattr(rec, "seg_json", {}))
+    if seg_obj:
+        return seg_obj
+    parsed_obj = _as_obj(rec.parsed)
+    return parsed_obj.get("layout", parsed_obj)
 
 # -----------------------------------------------------------------------------
 # 하위호환 라우트
